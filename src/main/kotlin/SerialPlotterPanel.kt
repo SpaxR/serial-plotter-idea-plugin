@@ -2,6 +2,7 @@ package de.serup
 
 import com.fazecast.jSerialComm.SerialPort
 import com.intellij.icons.AllIcons
+import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import java.awt.BorderLayout
@@ -9,6 +10,7 @@ import javax.swing.BorderFactory
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
 import javax.swing.JComboBox
+import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingConstants
 
@@ -17,7 +19,7 @@ class SerialPlotterPanel {
 
     val component: JPanel = JBPanel<JBPanel<*>>(BorderLayout()).apply {
         add(createPortSelectionPanel(), BorderLayout.NORTH)
-        add(createGraphPlaceholder(), BorderLayout.CENTER)
+        add(createMainSplitter(), BorderLayout.CENTER)
     }
 
     init {
@@ -34,6 +36,13 @@ class SerialPlotterPanel {
             add(JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.port.label")))
             add(portComboBox)
             add(refreshButton)
+        }
+    }
+
+    private fun createMainSplitter(): JComponent {
+        return JBSplitter(true, 0.7f).apply {
+            firstComponent = createGraphPlaceholder()
+            secondComponent = PlotsPanel().component
         }
     }
 
