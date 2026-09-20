@@ -25,6 +25,11 @@ class GraphPanel {
     val component: JComponent = JBTabbedPane().apply {
         addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.graph"), createGraphPlaceholder())
         addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.logs"), logScrollPane)
+        addChangeListener {
+            if (selectedComponent == logScrollPane) {
+                scrollLogToBottom()
+            }
+        }
     }
 
     /** Appends a line read from the currently selected serial port. Safe to call from any thread. */
@@ -38,6 +43,14 @@ class GraphPanel {
                 // run, which happens on the EDT after this event - so defer the actual scroll.
                 SwingUtilities.invokeLater { scrollBar.value = scrollBar.maximum }
             }
+        }
+    }
+
+    /** Jumps the raw log tab to its bottom. Deferred since selecting the tab lays it out first. */
+    private fun scrollLogToBottom() {
+        SwingUtilities.invokeLater {
+            val scrollBar = logScrollPane.verticalScrollBar
+            SwingUtilities.invokeLater { scrollBar.value = scrollBar.maximum }
         }
     }
 
