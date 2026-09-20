@@ -11,12 +11,17 @@ import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import javax.swing.ButtonGroup
 import javax.swing.JComponent
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
 
 /**
  * Configuration for a single plot: which prefix identifies its lines in the raw stream, how the
  * values on a line are separated, and how the line should be rendered.
  */
-class PlotConfigPanel {
+class PlotConfigPanel(
+    initial: SerialPlotterSettings.PlotState? = null,
+    private val onChange: () -> Unit = {},
+) {
     enum class Separator(val symbol: String) {
         PIPE("|"),
         COMMA(","),
@@ -35,14 +40,20 @@ class PlotConfigPanel {
         override fun toString() = SerialPlotterBundle.message(bundleKey)
     }
 
-    private val prefixField = JBTextField("", 20)
+    private val prefixField = JBTextField(initial?.prefix ?: "", 20).apply {
+        document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent) = onChange()
+            override fun removeUpdate(e: DocumentEvent) = onChange()
+            override fun changedUpdate(e: DocumentEvent) = onChange()
+        })
+    }
 
     val prefix: String get() = prefixField.text
 
-    var separator: Separator = Separator.PIPE
+    var separator: Separator = initial?.separator ?: Separator.PIPE
         private set
 
-    var renderStyle: RenderStyle = RenderStyle.LINE
+    var renderStyle: RenderStyle = initial?.renderStyle ?: RenderStyle.LINE
         private set
 
     val component: JComponent = JBPanel<JBPanel<*>>(GridBagLayout()).also { panel ->
@@ -93,7 +104,7 @@ class PlotConfigPanel {
         return JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 15, 0)).apply {
             Separator.entries.forEach { option ->
                 add(JBRadioButton(option.symbol, option == separator).apply {
-                    addActionListener { separator = option }
+                    addActionListener { separator = option; onChange() }
                     group.add(this)
                 })
             }
@@ -103,7 +114,14 @@ class PlotConfigPanel {
     private fun createRenderStyleComboBox(): JComponent {
         return ComboBox(RenderStyle.entries.toTypedArray()).apply {
             selectedItem = renderStyle
-            addActionListener { renderStyle = selectedItem as RenderStyle }
+            addActionListener { renderStyle = selectedItem as RenderStyle; onChange() }
         }
+    }
+
+    fun toState(title: String): SerialPlotterSettings.PlotState = SerialPlotterSettings.PlotState().also {
+        it.title = title
+        it.prefix = prefix
+        it.separator = separator
+        it.renderStyle = renderStyle
     }
 }

@@ -36,6 +36,8 @@ class PlotTabHeader(
         toolTipText = SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.rename.tooltip")
     }
 
+    val title: String get() = titleLabel.text
+
     init {
         isOpaque = false
 

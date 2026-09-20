@@ -3,6 +3,7 @@ package de.serup
 import com.fazecast.jSerialComm.SerialPort
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBLabel
@@ -13,7 +14,7 @@ import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JPanel
 
-class SerialPlotterPanel : Disposable {
+class SerialPlotterPanel(private val project: Project) : Disposable {
     private val portComboBox = ComboBox<String>()
     private val graphPanel = GraphPanel()
 
@@ -47,12 +48,15 @@ class SerialPlotterPanel : Disposable {
     private fun createMainSplitter(): JComponent {
         return JBSplitter(true, 0.7f).apply {
             firstComponent = graphPanel.component
-            secondComponent = PlotsPanel().component
+            secondComponent = PlotsPanel(project).component
         }
     }
 
     private fun refreshPorts() {
-        val previouslySelected = portComboBox.selectedItem as String?
+        // Falls back to the persisted port on the very first call (before anything has been selected
+        // in this session), so a previously connected port is restored automatically on startup.
+        val previouslySelected = (portComboBox.selectedItem as String?)
+            ?: SerialPlotterSettings.getInstance(project).state.lastSelectedPort
         val portNames = SerialPort.getCommPorts().map { it.systemPortName } +
             listOfNotNull(FakeSerialPort.DISPLAY_NAME.takeIf { DevMode.isActive })
         if (portNames.isEmpty()) {
@@ -75,6 +79,12 @@ class SerialPlotterPanel : Disposable {
         portConnection?.close()
         connectedPortName = portName
         portConnection = portName?.let { name -> PortConnection(name) { line -> graphPanel.appendLogLine(line) } }
+
+        // Only persist an actual port, not a temporary "no ports found" state, so unplugging the
+        // device doesn't erase the last known port before it gets plugged back in.
+        if (portName != null) {
+            SerialPlotterSettings.getInstance(project).state.lastSelectedPort = portName
+        }
     }
 
     override fun dispose() {
