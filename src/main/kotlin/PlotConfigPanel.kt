@@ -54,11 +54,11 @@ class PlotConfigPanel(
     val prefix: String get() = prefixField.text
 
     @Volatile
-    var separator: Separator = initial?.separator ?: Separator.PIPE
+    var separator: Separator = Separator.entries.find { it.name == initial?.separator } ?: Separator.PIPE
         private set
 
     @Volatile
-    var renderStyle: RenderStyle = initial?.renderStyle ?: RenderStyle.LINE
+    var renderStyle: RenderStyle = RenderStyle.entries.find { it.name == initial?.renderStyle } ?: RenderStyle.LINE
         private set
 
     val component: JComponent = JBPanel<JBPanel<*>>(GridBagLayout()).also { panel ->
@@ -126,7 +126,7 @@ class PlotConfigPanel(
     fun toState(title: String): SerialPlotterSettings.PlotState = SerialPlotterSettings.PlotState().also {
         it.title = title
         it.prefix = prefix
-        it.separator = separator
-        it.renderStyle = renderStyle
+        it.separator = separator.name
+        it.renderStyle = renderStyle.name
     }
 }

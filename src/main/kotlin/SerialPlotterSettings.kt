@@ -19,8 +19,8 @@ class SerialPlotterSettings : PersistentStateComponent<SerialPlotterSettings.Sta
     class PlotState {
         var title: String = ""
         var prefix: String = ""
-        var separator: PlotConfigPanel.Separator = PlotConfigPanel.Separator.PIPE
-        var renderStyle: PlotConfigPanel.RenderStyle = PlotConfigPanel.RenderStyle.LINE
+        var separator: String = PlotConfigPanel.Separator.PIPE.name
+        var renderStyle: String = PlotConfigPanel.RenderStyle.LINE.name
     }
 
     private var state = State()
