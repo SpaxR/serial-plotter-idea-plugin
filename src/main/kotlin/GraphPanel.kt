@@ -1,18 +1,17 @@
 package de.serup
 
-import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTabbedPane
 import com.intellij.ui.components.JBTextArea
-import java.awt.BorderLayout
+import javax.swing.BoxLayout
 import javax.swing.JComponent
-import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
+import javax.swing.Timer
 import javax.swing.text.DefaultCaret
 
-/** The "Graph" section: a tab with the (future) plot, and a tab with the raw data read from the selected port. */
-class GraphPanel {
+/** The "Graph" section: a tab with one scrolling chart per plot, and a tab with the raw port data. */
+class GraphPanel : PlotsPanel.Listener {
     private val logArea = JBTextArea().apply {
         isEditable = false
         // The default caret auto-follows every insert, which would force the view back to the
@@ -22,14 +21,52 @@ class GraphPanel {
     }
     private val logScrollPane = JBScrollPane(logArea)
 
+    private val chartsPanel = JBPanel<JBPanel<*>>().apply {
+        layout = BoxLayout(this, BoxLayout.Y_AXIS)
+    }
+    private val chartsScrollPane = JBScrollPane(chartsPanel)
+    private val chartViewsByPlot = mutableMapOf<Plot, PlotGraphView>()
+
+    // Repaints the charts on a fixed cadence, independent of how often data actually arrives, so
+    // the time axis keeps scrolling smoothly even between samples - like an oscilloscope.
+    private val redrawTimer = Timer(REDRAW_INTERVAL_MS) { chartViewsByPlot.values.forEach { it.repaint() } }
+
     val component: JComponent = JBTabbedPane().apply {
-        addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.graph"), createGraphPlaceholder())
+        addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.graph"), chartsScrollPane)
         addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.logs"), logScrollPane)
         addChangeListener {
             if (selectedComponent == logScrollPane) {
                 scrollLogToBottom()
             }
         }
+    }
+
+    init {
+        redrawTimer.start()
+    }
+
+    override fun onPlotAdded(plot: Plot) {
+        val view = PlotGraphView(plot)
+        chartViewsByPlot[plot] = view
+        chartsPanel.add(view)
+        chartsPanel.revalidate()
+        chartsPanel.repaint()
+    }
+
+    override fun onPlotRemoved(plot: Plot) {
+        val view = chartViewsByPlot.remove(plot) ?: return
+        chartsPanel.remove(view)
+        chartsPanel.revalidate()
+        chartsPanel.repaint()
+    }
+
+    override fun onPlotRenamed(plot: Plot) {
+        chartViewsByPlot[plot]?.updateTitle(plot.title)
+    }
+
+    /** Stops the redraw timer. Must be called when the tool window is disposed. */
+    fun dispose() {
+        redrawTimer.stop()
     }
 
     /** Appends a line read from the currently selected serial port. Safe to call from any thread. */
@@ -54,12 +91,7 @@ class GraphPanel {
         }
     }
 
-    private fun createGraphPlaceholder(): JComponent {
-        return JBPanel<JBPanel<*>>(BorderLayout()).apply {
-            add(
-                JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.placeholder"), SwingConstants.CENTER),
-                BorderLayout.CENTER
-            )
-        }
+    companion object {
+        private const val REDRAW_INTERVAL_MS = 100
     }
 }

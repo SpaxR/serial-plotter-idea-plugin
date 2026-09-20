@@ -17,6 +17,7 @@ import javax.swing.JPanel
 class SerialPlotterPanel(private val project: Project) : Disposable {
     private val portComboBox = ComboBox<String>()
     private val graphPanel = GraphPanel()
+    private val plotsPanel = PlotsPanel(project, graphPanel)
 
     private var portConnection: PortConnection? = null
     private var connectedPortName: String? = null
@@ -48,7 +49,7 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
     private fun createMainSplitter(): JComponent {
         return JBSplitter(true, 0.7f).apply {
             firstComponent = graphPanel.component
-            secondComponent = PlotsPanel(project).component
+            secondComponent = plotsPanel.component
         }
     }
 
@@ -78,7 +79,12 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
 
         portConnection?.close()
         connectedPortName = portName
-        portConnection = portName?.let { name -> PortConnection(name) { line -> graphPanel.appendLogLine(line) } }
+        portConnection = portName?.let { name ->
+            PortConnection(name) { line ->
+                graphPanel.appendLogLine(line)
+                plotsPanel.route(line)
+            }
+        }
 
         // Only persist an actual port, not a temporary "no ports found" state, so unplugging the
         // device doesn't erase the last known port before it gets plugged back in.
@@ -89,5 +95,6 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
 
     override fun dispose() {
         portConnection?.close()
+        graphPanel.dispose()
     }
 }

@@ -30,12 +30,12 @@ class PlotConfigPanel(
 
     // A flat list of the valid combinations, rather than a "line style" + "show dots" toggle pair,
     // so there is no way to end up with neither a line nor dots (nothing rendered) in the first place.
-    enum class RenderStyle(private val bundleKey: String) {
-        DOTS("toolwindow.SerialPlotter.plots.config.renderStyle.dots"),
-        LINE("toolwindow.SerialPlotter.plots.config.renderStyle.line"),
-        FILLED("toolwindow.SerialPlotter.plots.config.renderStyle.filled"),
-        LINE_AND_DOTS("toolwindow.SerialPlotter.plots.config.renderStyle.lineAndDots"),
-        FILLED_AND_DOTS("toolwindow.SerialPlotter.plots.config.renderStyle.filledAndDots");
+    enum class RenderStyle(private val bundleKey: String, val hasLine: Boolean, val hasFill: Boolean, val hasDots: Boolean) {
+        DOTS("toolwindow.SerialPlotter.plots.config.renderStyle.dots", hasLine = false, hasFill = false, hasDots = true),
+        LINE("toolwindow.SerialPlotter.plots.config.renderStyle.line", hasLine = true, hasFill = false, hasDots = false),
+        FILLED("toolwindow.SerialPlotter.plots.config.renderStyle.filled", hasLine = true, hasFill = true, hasDots = false),
+        LINE_AND_DOTS("toolwindow.SerialPlotter.plots.config.renderStyle.lineAndDots", hasLine = true, hasFill = false, hasDots = true),
+        FILLED_AND_DOTS("toolwindow.SerialPlotter.plots.config.renderStyle.filledAndDots", hasLine = true, hasFill = true, hasDots = true);
 
         override fun toString() = SerialPlotterBundle.message(bundleKey)
     }
@@ -48,11 +48,16 @@ class PlotConfigPanel(
         })
     }
 
+    // JTextComponent.getText() is safe to call off the EDT (it goes through the document's read
+    // lock), which matters here since the router reads prefix/separator/renderStyle from the
+    // PortConnection reader thread while the user can edit them on the EDT at the same time.
     val prefix: String get() = prefixField.text
 
+    @Volatile
     var separator: Separator = initial?.separator ?: Separator.PIPE
         private set
 
+    @Volatile
     var renderStyle: RenderStyle = initial?.renderStyle ?: RenderStyle.LINE
         private set
 
