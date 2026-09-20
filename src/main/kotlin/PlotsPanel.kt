@@ -51,7 +51,10 @@ class PlotsPanel(private val project: Project, private val listener: Listener) {
             }
         })
 
-        val persistedPlots = SerialPlotterSettings.getInstance(project).state.plots
+        // A defensive copy: addPlotTab() below calls saveState(), which clears and rebuilds
+        // state.plots in place - iterating that same live list here would corrupt the iteration
+        // after the first tab (or throw a ConcurrentModificationException).
+        val persistedPlots = SerialPlotterSettings.getInstance(project).state.plots.toList()
         if (persistedPlots.isEmpty()) {
             addPlotTab()
         } else {
@@ -111,11 +114,23 @@ class PlotsPanel(private val project: Project, private val listener: Listener) {
             if (prefix.isNotEmpty() && !line.startsWith(prefix)) continue
 
             val rest = if (prefix.isEmpty()) line else line.removePrefix(prefix)
-            val values = rest.split(plot.config.separator.symbol).map { it.trim().toDoubleOrNull() }
-            if (values.any { it != null }) {
+            val values = rest.split(plot.config.separator.symbol).map { parseValue(it) }
+            if (values.any { it.value != null }) {
                 plot.addSample(now, values)
             }
         }
+    }
+
+    /** Parses one token, e.g. "x:12.34" -> label "x", value 12.34; plain "12.34" -> no label. */
+    private fun parseValue(token: String): Plot.ParsedValue {
+        val trimmed = token.trim()
+        val colonIndex = trimmed.indexOf(':')
+        if (colonIndex == -1) {
+            return Plot.ParsedValue(label = null, value = trimmed.toDoubleOrNull())
+        }
+        val label = trimmed.substring(0, colonIndex).trim().takeIf { it.isNotEmpty() }
+        val value = trimmed.substring(colonIndex + 1).trim().toDoubleOrNull()
+        return Plot.ParsedValue(label, value)
     }
 
     private fun saveState() {

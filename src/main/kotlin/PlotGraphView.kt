@@ -38,14 +38,17 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
 
         val borderInsets = insets
         val left = borderInsets.left + AXIS_LABEL_WIDTH
-        val top = borderInsets.top + PADDING
+        val legendTop = borderInsets.top + PADDING
+        val top = legendTop + LEGEND_HEIGHT
         val right = width - borderInsets.right - PADDING
         val bottom = height - borderInsets.bottom - TIME_LABEL_HEIGHT
         if (right <= left || bottom <= top) return
 
         val now = System.currentTimeMillis()
         val seriesSnapshots = plot.snapshotSeries()
-        val allPoints = seriesSnapshots.flatten()
+        drawLegend(g2, seriesSnapshots, left, legendTop, right)
+
+        val allPoints = seriesSnapshots.flatMap { it.points }
         if (allPoints.isEmpty()) {
             drawNoData(g2, left, top, right, bottom)
             return
@@ -66,9 +69,30 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         drawGridlines(g2, left, top, right, bottom, paddedMin, paddedMax)
         drawTimeAxis(g2, left, right, bottom)
 
-        seriesSnapshots.forEachIndexed { index, points ->
-            if (points.isEmpty()) return@forEachIndexed
-            drawSeries(g2, points, PALETTE[index % PALETTE.size], plot.config.renderStyle, ::xFor, ::yFor, bottom.toFloat())
+        seriesSnapshots.forEachIndexed { index, snapshot ->
+            if (snapshot.points.isEmpty()) return@forEachIndexed
+            drawSeries(g2, snapshot.points, PALETTE[index % PALETTE.size], plot.config.renderStyle, ::xFor, ::yFor, bottom.toFloat())
+        }
+    }
+
+    private fun drawLegend(g2: Graphics2D, seriesSnapshots: List<Plot.SeriesSnapshot>, left: Int, legendTop: Int, right: Int) {
+        if (seriesSnapshots.isEmpty()) return
+        g2.font = AXIS_FONT
+        val metrics = g2.fontMetrics
+        val y = legendTop + metrics.ascent
+        var x = left
+        seriesSnapshots.forEachIndexed { index, snapshot ->
+            val label = snapshot.label ?: "Value ${index + 1}"
+            val entryWidth = LEGEND_DOT_SIZE + LEGEND_DOT_GAP + metrics.stringWidth(label)
+            if (x + entryWidth > right) return@forEachIndexed
+
+            g2.color = PALETTE[index % PALETTE.size]
+            g2.fillOval(x, y - metrics.ascent, LEGEND_DOT_SIZE, LEGEND_DOT_SIZE)
+            x += LEGEND_DOT_SIZE + LEGEND_DOT_GAP
+
+            g2.color = JBColor.GRAY
+            g2.drawString(label, x, y)
+            x += metrics.stringWidth(label) + LEGEND_ITEM_GAP
         }
     }
 
@@ -153,6 +177,10 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         private const val PADDING = 8
         private const val AXIS_LABEL_WIDTH = 40
         private const val TIME_LABEL_HEIGHT = 16
+        private const val LEGEND_HEIGHT = 14
+        private const val LEGEND_DOT_SIZE = 8
+        private const val LEGEND_DOT_GAP = 3
+        private const val LEGEND_ITEM_GAP = 10
         private const val GRIDLINE_COUNT = 4
         private const val DOT_RADIUS = 2.5f
         private val AXIS_FONT = Font(Font.SANS_SERIF, Font.PLAIN, 10)

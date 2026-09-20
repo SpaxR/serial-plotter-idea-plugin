@@ -34,7 +34,7 @@ object FakeSerialPort {
                 val plot_2_x = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
                 val plot_2_y = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
                 val plot_2_z = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                outputStream.write("[plot 2] %.2f | %.2f | %.2f\n".format(plot_2_x, plot_2_y, plot_2_z).toByteArray())
+                outputStream.write("[plot 2] x:%.2f | y: %.2f | z: %.2f\n".format(plot_2_x, plot_2_y, plot_2_z).toByteArray())
 
                 val plot_3_scalar = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
                 outputStream.write("[plot 3] %.2f\n".format(plot_3_scalar).toByteArray())
