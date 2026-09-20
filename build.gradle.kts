@@ -20,3 +20,11 @@ dependencies {
         // bundledPlugin("com.intellij.java")
     }
 }
+
+tasks {
+    // Marks the sandbox IDE (started via `./gradlew runIde`) as a development environment, so
+    // DevMode.isActive can distinguish it from a real installation - see DevMode.kt.
+    runIde {
+        systemProperty("de.serup.devMode", "true")
+    }
+}
