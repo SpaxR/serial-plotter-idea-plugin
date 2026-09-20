@@ -3,18 +3,18 @@ package de.serup
 import com.fazecast.jSerialComm.SerialPort
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import java.awt.BorderLayout
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
-import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JPanel
 
 class SerialPlotterPanel : Disposable {
-    private val portComboBox = JComboBox<String>()
+    private val portComboBox = ComboBox<String>()
     private val graphPanel = GraphPanel()
 
     private var portConnection: PortConnection? = null

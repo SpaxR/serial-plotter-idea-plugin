@@ -1,7 +1,6 @@
 package de.serup
 
 import com.intellij.icons.AllIcons
-import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBTabbedPane
 import java.awt.BorderLayout
@@ -10,7 +9,6 @@ import java.awt.event.MouseEvent
 import javax.swing.BorderFactory
 import javax.swing.JComponent
 import javax.swing.JPanel
-import javax.swing.SwingConstants
 
 /** The "Plots" section: a tabbed pane of plot configurations, plus a "+" pseudo-tab to add new ones. */
 class PlotsPanel {
@@ -40,7 +38,7 @@ class PlotsPanel {
     private fun addPlotTab() {
         val insertIndex = tabbedPane.tabCount - 1
         val title = SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.tab.defaultTitle")
-        tabbedPane.insertTab(title, null, createPlotConfigPanel(), null, insertIndex)
+        tabbedPane.insertTab(title, null, PlotConfigPanel().component, null, insertIndex)
 
         lateinit var header: PlotTabHeader
         header = PlotTabHeader(
@@ -66,14 +64,5 @@ class PlotsPanel {
         )
         tabbedPane.setTabComponentAt(insertIndex, header)
         tabbedPane.selectedIndex = insertIndex
-    }
-
-    private fun createPlotConfigPanel(): JComponent {
-        return JBPanel<JBPanel<*>>(BorderLayout()).apply {
-            add(
-                JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.placeholder"), SwingConstants.CENTER),
-                BorderLayout.CENTER
-            )
-        }
     }
 }
