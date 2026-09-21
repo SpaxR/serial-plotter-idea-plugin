@@ -136,7 +136,7 @@ class PlotsPanel(private val listener: Listener, private val onConfigChanged: ()
             if (prefix.isNotEmpty() && !line.startsWith(prefix)) continue
 
             val rest = if (prefix.isEmpty()) line else line.removePrefix(prefix)
-            val values = rest.split(plot.config.separator.symbol).map { parseValue(it) }
+            val values = rest.split(plot.config.separator.symbol).map { parseValue(it, plot.config.ignoreChars) }
             if (values.any { it.value != null }) {
                 plot.addSample(now, values)
             }
@@ -151,15 +151,22 @@ class PlotsPanel(private val listener: Listener, private val onConfigChanged: ()
         }
     }
 
-    /** Parses one token, e.g. "x:12.34" -> label "x", value 12.34; plain "12.34" -> no label. */
-    private fun parseValue(token: String): Plot.ParsedValue {
+    /**
+     * Parses one token, e.g. "x:12.34" -> label "x", value 12.34; plain "12.34" -> no label. Any
+     * character in [ignoreChars] is stripped from the value before parsing, so e.g. "tempC: 5°C"
+     * with ignoreChars "°CF%" parses to label "tempC", value 5.0.
+     */
+    private fun parseValue(token: String, ignoreChars: String): Plot.ParsedValue {
         val trimmed = token.trim()
         val colonIndex = trimmed.indexOf(':')
         if (colonIndex == -1) {
-            return Plot.ParsedValue(label = null, value = trimmed.toDoubleOrNull())
+            return Plot.ParsedValue(label = null, value = trimmed.stripChars(ignoreChars).toDoubleOrNull())
         }
         val label = trimmed.substring(0, colonIndex).trim().takeIf { it.isNotEmpty() }
-        val value = trimmed.substring(colonIndex + 1).trim().toDoubleOrNull()
+        val value = trimmed.substring(colonIndex + 1).trim().stripChars(ignoreChars).toDoubleOrNull()
         return Plot.ParsedValue(label, value)
     }
+
+    private fun String.stripChars(chars: String): String =
+        if (chars.isEmpty()) this else filterNot { chars.contains(it) }.trim()
 }

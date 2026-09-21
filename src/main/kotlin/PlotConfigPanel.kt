@@ -48,10 +48,22 @@ class PlotConfigPanel(
         })
     }
 
+    private val ignoreCharsField = JBTextField(initial?.ignoreChars ?: "", 20).apply {
+        document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent) = onChange()
+            override fun removeUpdate(e: DocumentEvent) = onChange()
+            override fun changedUpdate(e: DocumentEvent) = onChange()
+        })
+    }
+
     // JTextComponent.getText() is safe to call off the EDT (it goes through the document's read
-    // lock), which matters here since the router reads prefix/separator/renderStyle from the
-    // PortConnection reader thread while the user can edit them on the EDT at the same time.
+    // lock), which matters here since the router reads prefix/ignoreChars/separator/renderStyle
+    // from the PortConnection reader thread while the user can edit them on the EDT at the same
+    // time.
     val prefix: String get() = prefixField.text
+
+    /** Characters stripped from a value before parsing, e.g. "°CF%" to allow "5°C" or "50 %". */
+    val ignoreChars: String get() = ignoreCharsField.text
 
     @Volatile
     var separator: Separator = Separator.entries.find { it.name == initial?.separator } ?: Separator.PIPE
@@ -64,6 +76,7 @@ class PlotConfigPanel(
     val component: JComponent = JBPanel<JBPanel<*>>(GridBagLayout()).also { panel ->
         var row = 0
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.prefix.label"), prefixField)
+        addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.ignoreChars.label"), ignoreCharsField)
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.separator.label"), createSeparatorButtons())
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.renderStyle.label"), createRenderStyleComboBox())
 
@@ -126,6 +139,7 @@ class PlotConfigPanel(
     fun toState(title: String): SerialPlotterSettings.PlotState = SerialPlotterSettings.PlotState().also {
         it.title = title
         it.prefix = prefix
+        it.ignoreChars = ignoreChars
         it.separator = separator.name
         it.renderStyle = renderStyle.name
     }
