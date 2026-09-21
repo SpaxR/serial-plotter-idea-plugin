@@ -6,6 +6,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.JBSplitter
+import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.util.ui.JBUI
@@ -30,6 +31,11 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
     private var connectionEnabled = false
     private lateinit var connectionToggleButton: JButton
 
+    // The device-reported description for each currently listed system port name (e.g. "CP2102 USB to
+    // UART Bridge Controller"), read by portComboBox's renderer to show more than just the bare
+    // OS device name.
+    private var portDescriptionsByName: Map<String, String> = emptyMap()
+
     val component: JPanel = JBPanel<JBPanel<*>>(BorderLayout()).apply {
         add(createPortSelectionPanel(), BorderLayout.NORTH)
         add(createMainSplitter(), BorderLayout.CENTER)
@@ -46,6 +52,9 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         }
 
         portComboBox.addActionListener { connectToSelectedPort() }
+        portComboBox.renderer = SimpleListCellRenderer.create("") { name ->
+            portDescriptionsByName[name]?.takeIf { it.isNotBlank() && it != name }?.let { "$name — $it" } ?: name
+        }
 
         connectionToggleButton = JButton().apply {
             addActionListener { setConnectionEnabled(!connectionEnabled) }
@@ -73,7 +82,18 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         // in this session), so a previously connected port is restored automatically on startup.
         val previouslySelected = (portComboBox.selectedItem as String?)
             ?: SerialPlotterSettings.getInstance(project).state.lastSelectedPort
-        val portNames = SerialPort.getCommPorts().map { it.systemPortName } +
+
+        // A USB-based port (an actual attached device, like an Arduino or ESP32) is what a user is
+        // almost always looking for, so list those ahead of ports jSerialComm can't identify a device
+        // on (a real onboard UART, a Bluetooth SPP port, etc.) - alphabetical otherwise. Since nothing
+        // below overrides the combo box's own "select the first item" default, this also means the
+        // most likely port ends up preselected for free whenever no previous selection applies.
+        val realPorts = SerialPort.getCommPorts().sortedWith(
+            compareByDescending<SerialPort> { it.vendorID != -1 }.thenBy { it.systemPortName }
+        )
+        portDescriptionsByName = realPorts.associate { it.systemPortName to it.portDescription }
+
+        val portNames = realPorts.map { it.systemPortName } +
             listOfNotNull(FakeSerialPort.DISPLAY_NAME.takeIf { DevMode.isActive })
         if (portNames.isEmpty()) {
             portComboBox.model = DefaultComboBoxModel(arrayOf(SerialPlotterBundle.message("toolwindow.SerialPlotter.port.none")))
