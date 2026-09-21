@@ -27,7 +27,7 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
     // Lets the user stop the connection on demand - e.g. to free the port for another program to
     // use, since a real serial port can only be held open by one process at a time - without losing
     // the selected port or baud rate.
-    private var connectionEnabled = true
+    private var connectionEnabled = false
     private lateinit var connectionToggleButton: JButton
 
     val component: JPanel = JBPanel<JBPanel<*>>(BorderLayout()).apply {
@@ -100,6 +100,12 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         if (portName != null) {
             SerialPlotterSettings.getInstance(project).state.lastSelectedPort = portName
         }
+    }
+
+    /** Stops the connection - e.g. because the tool window was just closed - without forgetting the
+     * selected port or baud rate, so a later Start reconnects with the same settings. */
+    fun stopConnection() {
+        setConnectionEnabled(false)
     }
 
     private fun setConnectionEnabled(enabled: Boolean) {
