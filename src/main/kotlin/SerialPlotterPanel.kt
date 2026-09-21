@@ -16,7 +16,7 @@ import javax.swing.JPanel
 
 class SerialPlotterPanel(private val project: Project) : Disposable {
     private val portComboBox = ComboBox<String>()
-    private val graphPanel = GraphPanel()
+    private val graphPanel = GraphPanel(project, onBaudRateChanged = { openConnection() })
     private val plotsPanel = PlotsPanel(project, graphPanel)
 
     private var portConnection: PortConnection? = null
@@ -77,19 +77,28 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         val portName = (portComboBox.selectedItem as String?).takeIf { portComboBox.isEnabled }
         if (portName == connectedPortName) return
 
-        portConnection?.close()
         connectedPortName = portName
-        portConnection = portName?.let { name ->
-            PortConnection(name) { line ->
-                graphPanel.appendLogLine(line)
-                plotsPanel.route(line)
-            }
-        }
+        openConnection()
 
         // Only persist an actual port, not a temporary "no ports found" state, so unplugging the
         // device doesn't erase the last known port before it gets plugged back in.
         if (portName != null) {
             SerialPlotterSettings.getInstance(project).state.lastSelectedPort = portName
+        }
+    }
+
+    /**
+     * (Re)opens the connection to [connectedPortName] with the currently configured baud rate,
+     * closing any previous one first. Also called when the baud rate changes, to apply it to the
+     * port already in use.
+     */
+    private fun openConnection() {
+        portConnection?.close()
+        portConnection = connectedPortName?.let { name ->
+            PortConnection(name, graphPanel.baudRate) { line ->
+                graphPanel.appendLogLine(line)
+                plotsPanel.route(line)
+            }
         }
     }
 

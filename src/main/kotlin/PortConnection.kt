@@ -10,7 +10,8 @@ private const val RECONNECT_DELAY_MILLIS = 1000L
 
 /**
  * Reads lines from [portName] on a background thread and forwards each to [onLine], until [close]d.
- * [portName] is opened as a real port via jSerialComm, unless it is [FakeSerialPort.DISPLAY_NAME].
+ * [portName] is opened as a real port via jSerialComm at [baudRate], unless it is
+ * [FakeSerialPort.DISPLAY_NAME].
  *
  * The port is opened in semi-blocking mode with a read timeout, rather than jSerialComm's fully
  * non-blocking default: with the default, a read that finds no bytes yet available throws a
@@ -21,7 +22,7 @@ private const val RECONNECT_DELAY_MILLIS = 1000L
  * responsive. If reading still fails - the device was unplugged, the port errored out - the port is
  * closed and reopened until it succeeds again or [close] is called.
  */
-class PortConnection(private val portName: String, private val onLine: (String) -> Unit) {
+class PortConnection(private val portName: String, private val baudRate: Int, private val onLine: (String) -> Unit) {
     @Volatile
     private var closed = false
 
@@ -60,6 +61,7 @@ class PortConnection(private val portName: String, private val onLine: (String) 
         }
 
         val port = SerialPort.getCommPort(portName)
+        port.baudRate = baudRate
         port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, READ_TIMEOUT_MILLIS, 0)
         if (!port.openPort()) throw IOException("Could not open port $portName")
         serialPort = port

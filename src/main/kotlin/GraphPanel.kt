@@ -1,5 +1,6 @@
 package de.serup
 
+import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTabbedPane
@@ -10,8 +11,12 @@ import javax.swing.SwingUtilities
 import javax.swing.Timer
 import javax.swing.text.DefaultCaret
 
-/** The "Graph" section: a tab with one scrolling chart per plot, and a tab with the raw port data. */
-class GraphPanel : PlotsPanel.Listener {
+/**
+ * The "Graph" section: a tab with one scrolling chart per plot, a tab with the raw port data, and a
+ * tab to configure the serial connection itself. [onBaudRateChanged] is called whenever the baud rate
+ * is changed, so the caller can reopen the port connection with it.
+ */
+class GraphPanel(project: Project, private val onBaudRateChanged: () -> Unit) : PlotsPanel.Listener {
     private val logArea = JBTextArea().apply {
         isEditable = false
         // The default caret auto-follows every insert, which would force the view back to the
@@ -27,6 +32,17 @@ class GraphPanel : PlotsPanel.Listener {
     private val chartsScrollPane = JBScrollPane(chartsPanel)
     private val chartViewsByPlot = mutableMapOf<Plot, PlotGraphView>()
 
+    private val serialConfigPanel = SerialConfigPanel(
+        initialBaudRate = SerialPlotterSettings.getInstance(project).state.baudRate,
+        onChange = { baudRate ->
+            SerialPlotterSettings.getInstance(project).state.baudRate = baudRate
+            onBaudRateChanged()
+        },
+    )
+
+    /** The currently configured baud rate, to open the port connection with. */
+    val baudRate: Int get() = serialConfigPanel.baudRate
+
     // Repaints the charts on a fixed cadence, independent of how often data actually arrives, so
     // the time axis keeps scrolling smoothly even between samples - like an oscilloscope.
     private val redrawTimer = Timer(REDRAW_INTERVAL_MS) { chartViewsByPlot.values.forEach { it.repaint() } }
@@ -34,6 +50,7 @@ class GraphPanel : PlotsPanel.Listener {
     val component: JComponent = JBTabbedPane().apply {
         addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.graph"), chartsScrollPane)
         addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.logs"), logScrollPane)
+        addTab(SerialPlotterBundle.message("toolwindow.SerialPlotter.graph.tab.config"), serialConfigPanel.component)
         addChangeListener {
             if (selectedComponent == logScrollPane) {
                 scrollLogToBottom()

@@ -13,6 +13,7 @@ import com.intellij.openapi.project.Project
 class SerialPlotterSettings : PersistentStateComponent<SerialPlotterSettings.State> {
     class State {
         var lastSelectedPort: String? = null
+        var baudRate: Int = SerialConfigPanel.DEFAULT_BAUD_RATE
         var plots: MutableList<PlotState> = mutableListOf()
     }
 
