@@ -8,7 +8,9 @@ import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
+import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import javax.swing.Box
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -21,6 +23,12 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
 
     private var portConnection: PortConnection? = null
     private var connectedPortName: String? = null
+
+    // Lets the user stop the connection on demand - e.g. to free the port for another program to
+    // use, since a real serial port can only be held open by one process at a time - without losing
+    // the selected port or baud rate.
+    private var connectionEnabled = true
+    private lateinit var connectionToggleButton: JButton
 
     val component: JPanel = JBPanel<JBPanel<*>>(BorderLayout()).apply {
         add(createPortSelectionPanel(), BorderLayout.NORTH)
@@ -39,10 +47,17 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
 
         portComboBox.addActionListener { connectToSelectedPort() }
 
+        connectionToggleButton = JButton().apply {
+            addActionListener { setConnectionEnabled(!connectionEnabled) }
+        }
+        updateConnectionToggleButton()
+
         return JBPanel<JBPanel<*>>().apply {
             add(JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.port.label")))
             add(portComboBox)
             add(refreshButton)
+            add(Box.createHorizontalStrut(JBUI.scale(12)))
+            add(connectionToggleButton)
         }
     }
 
@@ -87,19 +102,36 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         }
     }
 
+    private fun setConnectionEnabled(enabled: Boolean) {
+        connectionEnabled = enabled
+        updateConnectionToggleButton()
+        openConnection()
+    }
+
+    private fun updateConnectionToggleButton() {
+        connectionToggleButton.text = SerialPlotterBundle.message(
+            if (connectionEnabled) "toolwindow.SerialPlotter.port.connection.stop.label"
+            else "toolwindow.SerialPlotter.port.connection.start.label"
+        )
+        connectionToggleButton.toolTipText = SerialPlotterBundle.message(
+            if (connectionEnabled) "toolwindow.SerialPlotter.port.connection.stop.tooltip"
+            else "toolwindow.SerialPlotter.port.connection.start.tooltip"
+        )
+    }
+
     /**
      * (Re)opens the connection to [connectedPortName] with the currently configured baud rate,
-     * closing any previous one first. Also called when the baud rate changes, to apply it to the
-     * port already in use.
+     * closing any previous one first, unless [connectionEnabled] is false. Also called when the
+     * baud rate changes, to apply it to the port already in use.
      */
     private fun openConnection() {
         portConnection?.close()
-        portConnection = connectedPortName?.let { name ->
+        portConnection = if (connectionEnabled) connectedPortName?.let { name ->
             PortConnection(name, graphPanel.baudRate) { line ->
                 graphPanel.appendLogLine(line)
                 plotsPanel.route(line)
             }
-        }
+        } else null
     }
 
     override fun dispose() {
