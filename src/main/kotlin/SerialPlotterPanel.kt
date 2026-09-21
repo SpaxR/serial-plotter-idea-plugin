@@ -38,6 +38,9 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
     private var portConnection: PortConnection? = null
     private var connectedPortName: String? = null
 
+    // Suppresses saveCurrentPortConfig() while loadPortConfig() is applying a saved config to the UI.
+    private var isLoadingPortConfig = false
+
     // Lets the user stop the connection on demand - e.g. to free the port for another program to
     // use, since a real serial port can only be held open by one process at a time - without losing
     // the selected port or baud rate.
@@ -145,12 +148,19 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
     /** Applies [portName]'s saved baud rate and plots, or the defaults if it has none saved yet. */
     private fun loadPortConfig(portName: String?) {
         val config = portName?.let { SerialPlotterSettings.getInstance(project).state.portConfigs[it] }
-        graphPanel.setBaudRate(config?.baudRate ?: SerialConfigPanel.DEFAULT_BAUD_RATE)
-        plotsPanel.loadPlots(config?.plots ?: emptyList())
+
+        isLoadingPortConfig = true
+        try {
+            graphPanel.setBaudRate(config?.baudRate ?: SerialConfigPanel.DEFAULT_BAUD_RATE)
+            plotsPanel.loadPlots(config?.plots ?: emptyList())
+        } finally {
+            isLoadingPortConfig = false
+        }
     }
 
     /** Persists the currently displayed baud rate and plots under the currently selected port. */
     private fun saveCurrentPortConfig() {
+        if (isLoadingPortConfig) return
         val portName = connectedPortName ?: return
         val config = SerialPlotterSettings.getInstance(project).state.portConfigs
             .getOrPut(portName) { SerialPlotterSettings.PortConfig() }
