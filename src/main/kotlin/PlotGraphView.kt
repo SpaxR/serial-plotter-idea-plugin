@@ -45,17 +45,25 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         if (right <= left || bottom <= top) return
 
         val now = System.currentTimeMillis()
-        val seriesSnapshots = plot.snapshotSeries()
+        // TimeSeries only prunes points older than its window relative to the newest *added* point,
+        // so while the connection is stopped and nothing is being added, stale points would otherwise
+        // linger forever - drawn ever further past the left edge as [now] keeps advancing without
+        // them. Re-filtering against the window here, on every repaint, ages them out on wall-clock
+        // time alone, so the chart still empties out on schedule with no new data arriving.
+        val windowStart = now - TimeSeries.WINDOW_MS
+        val seriesSnapshots = plot.snapshotSeries().map { snapshot ->
+            Plot.SeriesSnapshot(snapshot.label, snapshot.points.filter { it.timestampMs >= windowStart })
+        }
         drawLegend(g2, seriesSnapshots, left, legendTop, right)
 
-        val allPoints = seriesSnapshots.flatMap { it.points }
-        if (allPoints.isEmpty()) {
+        val realValues = seriesSnapshots.flatMap { it.points }.mapNotNull { it.value }
+        if (realValues.isEmpty()) {
             drawNoData(g2, left, top, right, bottom)
             return
         }
 
-        val minValue = allPoints.minOf { it.value }
-        val maxValue = allPoints.maxOf { it.value }
+        val minValue = realValues.min()
+        val maxValue = realValues.max()
         val range = (maxValue - minValue).takeIf { it > 1e-9 } ?: 1.0
         val paddedMin = minValue - range * 0.1
         val paddedMax = maxValue + range * 0.1
@@ -70,7 +78,7 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         drawTimeAxis(g2, left, right, bottom)
 
         seriesSnapshots.forEachIndexed { index, snapshot ->
-            if (snapshot.points.isEmpty()) return@forEachIndexed
+            if (snapshot.points.none { it.value != null }) return@forEachIndexed
             drawSeries(g2, snapshot.points, PALETTE[index % PALETTE.size], plot.config.renderStyle, ::xFor, ::yFor, bottom.toFloat())
         }
     }
@@ -131,7 +139,39 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         g2.drawString(endLabel, right - metrics.stringWidth(endLabel), bottom + metrics.ascent + 2)
     }
 
+    /** Draws one series, treating each gap marker (a `null`-valued point) as a break between segments -
+     * so a stopped-and-restarted connection reads as a visible hole rather than a straight line jumping
+     * across however long the stream was actually down for. */
     private fun drawSeries(
+        g2: Graphics2D,
+        points: List<TimeSeries.Point>,
+        color: Color,
+        style: PlotConfigPanel.RenderStyle,
+        xFor: (Long) -> Float,
+        yFor: (Double) -> Float,
+        baselineY: Float,
+    ) {
+        for (segment in splitOnGaps(points)) {
+            drawSegment(g2, segment, color, style, xFor, yFor, baselineY)
+        }
+    }
+
+    private fun splitOnGaps(points: List<TimeSeries.Point>): List<List<TimeSeries.Point>> {
+        val segments = mutableListOf<List<TimeSeries.Point>>()
+        var current = mutableListOf<TimeSeries.Point>()
+        for (point in points) {
+            if (point.value == null) {
+                if (current.isNotEmpty()) segments.add(current)
+                current = mutableListOf()
+            } else {
+                current.add(point)
+            }
+        }
+        if (current.isNotEmpty()) segments.add(current)
+        return segments
+    }
+
+    private fun drawSegment(
         g2: Graphics2D,
         points: List<TimeSeries.Point>,
         color: Color,
@@ -143,7 +183,7 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         val path = Path2D.Float()
         points.forEachIndexed { index, point ->
             val x = xFor(point.timestampMs)
-            val y = yFor(point.value)
+            val y = yFor(point.value!!)
             if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
 
@@ -166,7 +206,7 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
             g2.color = color
             points.forEach { point ->
                 val x = xFor(point.timestampMs)
-                val y = yFor(point.value)
+                val y = yFor(point.value!!)
                 g2.fill(Ellipse2D.Float(x - DOT_RADIUS, y - DOT_RADIUS, DOT_RADIUS * 2, DOT_RADIUS * 2))
             }
         }

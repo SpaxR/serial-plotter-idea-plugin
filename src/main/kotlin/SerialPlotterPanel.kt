@@ -125,6 +125,11 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
      * baud rate changes, to apply it to the port already in use.
      */
     private fun openConnection() {
+        // Whatever was running is being interrupted - mark the break so the graph doesn't draw a
+        // misleading line straight across however long it takes the replacement connection (if any)
+        // to deliver its first line.
+        if (portConnection != null) plotsPanel.markDisconnected()
+
         portConnection?.close()
         portConnection = if (connectionEnabled) connectedPortName?.let { name ->
             PortConnection(name, graphPanel.baudRate) { line ->

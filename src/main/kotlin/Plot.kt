@@ -41,6 +41,12 @@ class Plot(var title: String, val config: PlotConfigPanel) {
     @Synchronized
     fun snapshotSeries(): List<SeriesSnapshot> = series.map { SeriesSnapshot(it.label, it.timeSeries.snapshot()) }
 
+    /** Marks a break in every series already known to this plot - see [TimeSeries.addGap]. */
+    @Synchronized
+    fun markGap(timestampMs: Long) {
+        series.forEach { it.timeSeries.addGap(timestampMs) }
+    }
+
     companion object {
         private const val INVALID_LABEL = "invalid"
     }

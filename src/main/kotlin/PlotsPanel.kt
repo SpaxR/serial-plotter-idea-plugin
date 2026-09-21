@@ -121,6 +121,14 @@ class PlotsPanel(private val project: Project, private val listener: Listener) {
         }
     }
 
+    /** Marks a break in every plot's series - see [Plot.markGap]. Safe to call from any thread. */
+    fun markDisconnected() {
+        val now = System.currentTimeMillis()
+        for (plot in routablePlots) {
+            plot.markGap(now)
+        }
+    }
+
     /** Parses one token, e.g. "x:12.34" -> label "x", value 12.34; plain "12.34" -> no label. */
     private fun parseValue(token: String): Plot.ParsedValue {
         val trimmed = token.trim()
