@@ -26,8 +26,10 @@ class PortConnection(private val portName: String, private val baudRate: Int, pr
     @Volatile
     private var closed = false
 
+    // Releases whichever resource openReader() last opened - the real SerialPort, or the fake port's
+    // input stream - so close() can unblock a read that's currently blocked waiting for more bytes.
     @Volatile
-    private var serialPort: SerialPort? = null
+    private var closer: (() -> Unit)? = null
 
     init {
         Thread({ readLoop() }, "PortConnection-reader").apply {
@@ -47,8 +49,8 @@ class PortConnection(private val portName: String, private val baudRate: Int, pr
             } catch (_: Exception) {
                 // The port failed to open, failed while reading, or was closed mid-read; retry below.
             } finally {
-                serialPort?.closePort()
-                serialPort = null
+                closer?.invoke()
+                closer = null
             }
 
             if (!closed) Thread.sleep(RECONNECT_DELAY_MILLIS)
@@ -57,19 +59,21 @@ class PortConnection(private val portName: String, private val baudRate: Int, pr
 
     private fun openReader(): BufferedReader {
         if (portName == FakeSerialPort.DISPLAY_NAME) {
-            return BufferedReader(InputStreamReader(FakeSerialPort.inputStream))
+            val input = FakeSerialPort.openInputStream()
+            closer = { input.close() }
+            return BufferedReader(InputStreamReader(input))
         }
 
         val port = SerialPort.getCommPort(portName)
         port.baudRate = baudRate
         port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, READ_TIMEOUT_MILLIS, 0)
         if (!port.openPort()) throw IOException("Could not open port $portName")
-        serialPort = port
+        closer = { port.closePort() }
         return BufferedReader(InputStreamReader(port.getInputStreamWithSuppressedTimeoutExceptions()))
     }
 
     fun close() {
         closed = true
-        serialPort?.closePort()
+        closer?.invoke()
     }
 }
