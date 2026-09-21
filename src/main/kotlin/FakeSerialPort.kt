@@ -14,30 +14,34 @@ object FakeSerialPort {
     const val DISPLAY_NAME = "Fake Port (dev)"
 
     private const val EMIT_INTERVAL_MILLIS = 200L
-    private const val EMIT_MIN_VALUE = 0.0
-    private const val EMIT_MAX_VALUE = 100.0
+
+    // How far a value can drift on a single step, as a fraction of its current value.
+    private const val STEP_FRACTION = 0.10
 
     private val outputStream = PipedOutputStream()
     val inputStream: InputStream = PipedInputStream(outputStream)
 
+    private val plot1X = RandomWalkValue()
+    private val plot1Y = RandomWalkValue()
+    private val plot1Z = RandomWalkValue()
+    private val plot2X = RandomWalkValue()
+    private val plot2Y = RandomWalkValue()
+    private val plot2Z = RandomWalkValue()
+    private val plot3Scalar = RandomWalkValue()
+
     init {
         Thread({
             while (true) {
-                val plot_1_x = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                val plot_1_y = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                val plot_1_z = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                outputStream.write("[plot 1] %.2f | %.2f | %.2f\n".format(plot_1_x, plot_1_y, plot_1_z).toByteArray())
-
+                outputStream.write(
+                    "[plot 1] %.2f | %.2f | %.2f\n".format(plot1X.next(), plot1Y.next(), plot1Z.next()).toByteArray()
+                )
                 outputStream.flush()
                 Thread.sleep(EMIT_INTERVAL_MILLIS)
 
-                val plot_2_x = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                val plot_2_y = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                val plot_2_z = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                outputStream.write("[plot 2] x:%.2f | y: %.2f | z: %.2f\n".format(plot_2_x, plot_2_y, plot_2_z).toByteArray())
-
-                val plot_3_scalar = Random.nextDouble(EMIT_MIN_VALUE, EMIT_MAX_VALUE)
-                outputStream.write("[plot 3] %.2f\n".format(plot_3_scalar).toByteArray())
+                outputStream.write(
+                    "[plot 2] x:%.2f | y: %.2f | z: %.2f\n".format(plot2X.next(), plot2Y.next(), plot2Z.next()).toByteArray()
+                )
+                outputStream.write("[plot 3] %.2f\n".format(plot3Scalar.next()).toByteArray())
 
                 outputStream.flush()
                 Thread.sleep(EMIT_INTERVAL_MILLIS)
@@ -45,6 +49,17 @@ object FakeSerialPort {
         }, "FakeSerialPort-emitter").apply {
             isDaemon = true
             start()
+        }
+    }
+
+    /**
+     * A value that starts out random and then wanders - each [next] nudges it by a random fraction
+     * (up to [STEP_FRACTION]) of its current value, instead of jumping to a whole new random value.
+     */
+    private class RandomWalkValue(private var value: Double = Random.nextDouble(0.0, 100.0)) {
+        fun next(): Double {
+            value += value * Random.nextDouble(-STEP_FRACTION, STEP_FRACTION)
+            return value
         }
     }
 }
