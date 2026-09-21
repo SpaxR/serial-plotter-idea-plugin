@@ -1,6 +1,5 @@
 package de.serup
 
-import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTabbedPane
@@ -14,9 +13,10 @@ import javax.swing.text.DefaultCaret
 /**
  * The "Graph" section: a tab with one scrolling chart per plot, a tab with the raw port data, and a
  * tab to configure the serial connection itself. [onBaudRateChanged] is called whenever the baud rate
- * is changed, so the caller can reopen the port connection with it.
+ * is changed - by the user, or via [setBaudRate] - so the caller can persist it and reopen the port
+ * connection with it.
  */
-class GraphPanel(project: Project, private val onBaudRateChanged: () -> Unit) : PlotsPanel.Listener {
+class GraphPanel(private val onBaudRateChanged: () -> Unit) : PlotsPanel.Listener {
     private val logArea = JBTextArea().apply {
         isEditable = false
         // The default caret auto-follows every insert, which would force the view back to the
@@ -32,16 +32,13 @@ class GraphPanel(project: Project, private val onBaudRateChanged: () -> Unit) : 
     private val chartsScrollPane = JBScrollPane(chartsPanel)
     private val chartViewsByPlot = mutableMapOf<Plot, PlotGraphView>()
 
-    private val serialConfigPanel = SerialConfigPanel(
-        initialBaudRate = SerialPlotterSettings.getInstance(project).state.baudRate,
-        onChange = { baudRate ->
-            SerialPlotterSettings.getInstance(project).state.baudRate = baudRate
-            onBaudRateChanged()
-        },
-    )
+    private val serialConfigPanel = SerialConfigPanel(onChange = { onBaudRateChanged() })
 
     /** The currently configured baud rate, to open the port connection with. */
     val baudRate: Int get() = serialConfigPanel.baudRate
+
+    /** Programmatically selects [rate] - e.g. when switching to a port with its own saved baud rate. */
+    fun setBaudRate(rate: Int) = serialConfigPanel.setBaudRate(rate)
 
     // Repaints the charts on a fixed cadence, independent of how often data actually arrives, so
     // the time axis keeps scrolling smoothly even between samples - like an oscilloscope.

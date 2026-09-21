@@ -19,8 +19,11 @@ import javax.swing.JPanel
 
 class SerialPlotterPanel(private val project: Project) : Disposable {
     private val portComboBox = ComboBox<String>()
-    private val graphPanel = GraphPanel(project, onBaudRateChanged = { openConnection() })
-    private val plotsPanel = PlotsPanel(project, graphPanel)
+    private val graphPanel = GraphPanel(onBaudRateChanged = {
+        saveCurrentPortConfig()
+        openConnection()
+    })
+    private val plotsPanel = PlotsPanel(listener = graphPanel, onConfigChanged = ::saveCurrentPortConfig)
 
     private var portConnection: PortConnection? = null
     private var connectedPortName: String? = null
@@ -112,14 +115,33 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         val portName = (portComboBox.selectedItem as String?).takeIf { portComboBox.isEnabled }
         if (portName == connectedPortName) return
 
+        // Switching ports stops the stream - a different device may need a different baud rate, and
+        // whatever was just being read has nothing to do with what the new port will send.
+        setConnectionEnabled(false)
         connectedPortName = portName
-        openConnection()
+        loadPortConfig(portName)
 
         // Only persist an actual port, not a temporary "no ports found" state, so unplugging the
         // device doesn't erase the last known port before it gets plugged back in.
         if (portName != null) {
             SerialPlotterSettings.getInstance(project).state.lastSelectedPort = portName
         }
+    }
+
+    /** Applies [portName]'s saved baud rate and plots, or the defaults if it has none saved yet. */
+    private fun loadPortConfig(portName: String?) {
+        val config = portName?.let { SerialPlotterSettings.getInstance(project).state.portConfigs[it] }
+        graphPanel.setBaudRate(config?.baudRate ?: SerialConfigPanel.DEFAULT_BAUD_RATE)
+        plotsPanel.loadPlots(config?.plots ?: emptyList())
+    }
+
+    /** Persists the currently displayed baud rate and plots under the currently selected port. */
+    private fun saveCurrentPortConfig() {
+        val portName = connectedPortName ?: return
+        val config = SerialPlotterSettings.getInstance(project).state.portConfigs
+            .getOrPut(portName) { SerialPlotterSettings.PortConfig() }
+        config.baudRate = graphPanel.baudRate
+        config.plots = plotsPanel.exportPlots().toMutableList()
     }
 
     /** Stops the connection - e.g. because the tool window was just closed - without forgetting the

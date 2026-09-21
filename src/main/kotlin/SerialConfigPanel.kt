@@ -33,6 +33,11 @@ class SerialConfigPanel(
         }
     }
 
+    /** Programmatically selects [rate], as if the user had entered it - also invoking [onChange]. */
+    fun setBaudRate(rate: Int) {
+        baudRateComboBox.selectedItem = rate.toString()
+    }
+
     val component: JComponent = JBPanel<JBPanel<*>>(GridBagLayout()).also { panel ->
         var row = 0
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.config.baudRate.label"), baudRateComboBox)
