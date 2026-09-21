@@ -31,6 +31,8 @@ class SerialPlotterSettings : PersistentStateComponent<SerialPlotterSettings.Sta
         var ignoreChars: String = ""
         var separator: String = PlotConfigPanel.Separator.PIPE.name
         var renderStyle: String = PlotConfigPanel.RenderStyle.LINE.name
+        var lowerBound: String = ""
+        var upperBound: String = ""
     }
 
     private var state = State()

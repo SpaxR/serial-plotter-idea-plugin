@@ -56,6 +56,24 @@ class PlotConfigPanel(
         })
     }
 
+    private val lowerBoundField = JBTextField(initial?.lowerBound ?: "", 6).apply {
+        emptyText.text = SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.bounds.auto")
+        document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent) = onChange()
+            override fun removeUpdate(e: DocumentEvent) = onChange()
+            override fun changedUpdate(e: DocumentEvent) = onChange()
+        })
+    }
+
+    private val upperBoundField = JBTextField(initial?.upperBound ?: "", 6).apply {
+        emptyText.text = SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.bounds.auto")
+        document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent) = onChange()
+            override fun removeUpdate(e: DocumentEvent) = onChange()
+            override fun changedUpdate(e: DocumentEvent) = onChange()
+        })
+    }
+
     // JTextComponent.getText() is safe to call off the EDT (it goes through the document's read
     // lock), which matters here since the router reads prefix/ignoreChars/separator/renderStyle
     // from the PortConnection reader thread while the user can edit them on the EDT at the same
@@ -64,6 +82,10 @@ class PlotConfigPanel(
 
     /** Characters stripped from a value before parsing, e.g. "°CF%" to allow "5°C" or "50 %". */
     val ignoreChars: String get() = ignoreCharsField.text
+
+    /** The graph's fixed y-axis bounds, or null to keep auto-scaling to the visible data. */
+    val lowerBound: Double? get() = lowerBoundField.text.trim().toDoubleOrNull()
+    val upperBound: Double? get() = upperBoundField.text.trim().toDoubleOrNull()
 
     @Volatile
     var separator: Separator = Separator.entries.find { it.name == initial?.separator } ?: Separator.PIPE
@@ -79,6 +101,7 @@ class PlotConfigPanel(
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.ignoreChars.label"), ignoreCharsField)
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.separator.label"), createSeparatorButtons())
         addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.renderStyle.label"), createRenderStyleComboBox())
+        addRow(panel, row++, SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.bounds.label"), createBoundsRow())
 
         // Absorbs any extra vertical space the tab gives this panel, so the rows above stay
         // compact at the top instead of spreading out to fill the whole height.
@@ -136,11 +159,21 @@ class PlotConfigPanel(
         }
     }
 
+    private fun createBoundsRow(): JComponent =
+        JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+            add(JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.bounds.min")))
+            add(lowerBoundField)
+            add(JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.plots.config.bounds.max")))
+            add(upperBoundField)
+        }
+
     fun toState(title: String): SerialPlotterSettings.PlotState = SerialPlotterSettings.PlotState().also {
         it.title = title
         it.prefix = prefix
         it.ignoreChars = ignoreChars
         it.separator = separator.name
         it.renderStyle = renderStyle.name
+        it.lowerBound = lowerBoundField.text
+        it.upperBound = upperBoundField.text
     }
 }

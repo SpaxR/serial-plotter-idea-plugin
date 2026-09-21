@@ -65,14 +65,18 @@ class PlotGraphView(private val plot: Plot) : JBPanel<PlotGraphView>(BorderLayou
         val minValue = realValues.min()
         val maxValue = realValues.max()
         val range = (maxValue - minValue).takeIf { it > 1e-9 } ?: 1.0
-        val paddedMin = minValue - range * 0.1
-        val paddedMax = maxValue + range * 0.1
+        val autoMin = minValue - range * 0.1
+        val autoMax = maxValue + range * 0.1
+        val paddedMin = plot.config.lowerBound ?: autoMin
+        val paddedMax = (plot.config.upperBound ?: autoMax).takeIf { it > paddedMin } ?: (paddedMin + 1.0)
 
         fun xFor(timestampMs: Long): Float =
             left + ((timestampMs - (now - TimeSeries.WINDOW_MS)).toFloat() / TimeSeries.WINDOW_MS) * (right - left)
 
+        // Clamped to the visible range so a value beyond a user-defined bound is pinned to that
+        // edge of the chart instead of being drawn outside it.
         fun yFor(value: Double): Float =
-            bottom - ((value - paddedMin) / (paddedMax - paddedMin)).toFloat() * (bottom - top)
+            bottom - ((value.coerceIn(paddedMin, paddedMax) - paddedMin) / (paddedMax - paddedMin)).toFloat() * (bottom - top)
 
         drawGridlines(g2, left, top, right, bottom, paddedMin, paddedMax)
         drawTimeAxis(g2, left, right, bottom)
