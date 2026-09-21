@@ -11,6 +11,8 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.Dimension
+import java.awt.FlowLayout
 import javax.swing.Box
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
@@ -18,7 +20,15 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 
 class SerialPlotterPanel(private val project: Project) : Disposable {
-    private val portComboBox = ComboBox<String>()
+    // Overridden so the combo box keeps a usable width instead of shrinking to fit whatever the
+    // shortest port name happens to be once the tool window gets narrow.
+    private val portComboBox = object : ComboBox<String>() {
+        override fun getPreferredSize(): Dimension {
+            val size = super.getPreferredSize()
+            size.width = maxOf(size.width, JBUI.scale(MIN_PORT_COMBO_BOX_WIDTH))
+            return size
+        }
+    }
     private val graphPanel = GraphPanel(onBaudRateChanged = {
         saveCurrentPortConfig()
         openConnection()
@@ -64,13 +74,17 @@ class SerialPlotterPanel(private val project: Project) : Disposable {
         }
         updateConnectionToggleButton()
 
-        return JBPanel<JBPanel<*>>().apply {
+        return JBPanel<JBPanel<*>>(WrapLayout(FlowLayout.LEFT, JBUI.scale(5), JBUI.scale(4))).apply {
             add(JBLabel(SerialPlotterBundle.message("toolwindow.SerialPlotter.port.label")))
             add(portComboBox)
             add(refreshButton)
             add(Box.createHorizontalStrut(JBUI.scale(12)))
             add(connectionToggleButton)
         }
+    }
+
+    companion object {
+        private const val MIN_PORT_COMBO_BOX_WIDTH = 120
     }
 
     private fun createMainSplitter(): JComponent {
